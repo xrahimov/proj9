@@ -1,10 +1,28 @@
 import collections
-from itertools import chain
+# from itertools import chain
 import re
 
 pronunciations = None
 lookup = None
 rhyme_lookup = None
+
+
+def search(pattern):
+    """Get words whose pronunciation matches a regular expression.
+    This function Searches the CMU dictionary for pronunciations matching a
+    given regular expression. (Word boundary anchors are automatically added
+    before and after the pattern.)
+    .. doctest::
+        >>> import pronouncing
+        >>> 'interpolate' in pronouncing.search('ER1 P AH0')
+        True
+    :param pattern: a string containing a regular expression
+    :returns: a list of matching words
+    """
+    with open("PronunciationDictionary.txt", "r") as file:
+        init_cmu(file.readlines())
+    regexp = re.compile(r"\b" + pattern + r"\b")
+    return [word for word, phones in pronunciations if regexp.search(phones)]
 
 
 def consonant_clusters():
@@ -114,23 +132,6 @@ def parse_cmu(cmufh):
     return pronunciations
 
 
-def search(pattern):
-    """Get words whose pronunciation matches a regular expression.
-    This function Searches the CMU dictionary for pronunciations matching a
-    given regular expression. (Word boundary anchors are automatically added
-    before and after the pattern.)
-    .. doctest::
-        >>> import pronouncing
-        >>> 'interpolate' in pronouncing.search('ER1 P AH0')
-        True
-    :param pattern: a string containing a regular expression
-    :returns: a list of matching words
-    """
-    init_cmu()
-    regexp = re.compile(r"\b" + pattern + r"\b")
-    return [word for word, phones in pronunciations if regexp.search(phones)]
-
-
 def init_cmu(filehandle=None):
     global pronunciations, lookup, rhyme_lookup
     if pronunciations is None:
@@ -159,6 +160,10 @@ def phones_for_word(find):
 
     return lookup.get(find.lower(), [])
 
+def chain(*iterables):
+    for it in iterables:
+        for each in it:
+            yield each
 
 def rhyme(word):
     phones = phones_for_word(word)
@@ -168,10 +173,9 @@ def rhyme(word):
             combined_rhymes.append(
                 [w for w in rhyme_lookup.get(rhyming_part(element), []) if w != word]
             )
-        # combined_rhymes = list(chain.from_iterable(combined_rhymes))
-        # unique_combined_rhymes = sorted(set(combined_rhymes))
-        # return unique_combined_rhymes
-        return combined_rhymes
+
+        rhymes = list(set([item for sublist in combined_rhymes for item in sublist]))
+        return rhymes
     else:
         return []
 
@@ -213,34 +217,15 @@ def perfect_rhyme(word, phones=None):
             raise ValueError(phones + " not phones for +" + word)
     if not phones:
         raise ValueError("phonemes string is empty")
-    perf_and_iden_rhymes = rhyme(word, phones)
+    rhymes = rhyme(word)
     identical_rhymes = identical_rhyme(word, phones)
-    perfect_rhymes = list(np.setdiff1d(perf_and_iden_rhymes, identical_rhymes))
+    perfect_rhymes = list(set(rhymes).difference(set(identical_rhymes)))
     if word in perfect_rhymes:
         perfect_rhymes.remove(word)
-    return perfect_rhymes
+    return sorted(perfect_rhymes)
 
 
 def identical_rhyme(word, phones=None):
-    """Returns identical rhymes of word.
-
-    The conditions for an identical rhyme between words are:
-    (1) last stressed vowel and subsequent phonemes match
-    (2) onset of last stressed syllable is the same
-        e.g. 'leave' and 'leave', or 'leave' and 'believe'
-    If phones argument not given, phones/pronunciation used will default to the
-    first in the list of phones returned for word. If no rhyme is found, an
-    empty list is returned.
-
-    The identical part of the word doesn't have to be a 'real' word.
-    e.g. The phonemes for 'vection' will be used to find identical rhymes
-    of 'convection' (e.g. advection) even though 'vection' is unusual/obscure.
-
-
-    :param word: a word
-    :param phones: specific CMUdict phonemes string for word (default None)
-    :return: a list of identical rhymes for word
-    """
     if phones is None:
         phones = first_phones_for_word(word)
         if phones == "":
@@ -262,8 +247,8 @@ def identical_rhyme(word, phones=None):
             last_stressed_vowel_at_start = i == 0
             if last_stressed_vowel_at_start is True:
                 search_list.reverse()
-                search = " ".join(search_list)
-                rhymes = search(search + "$")
+                searchs = " ".join(search_list)
+                rhymes = search(searchs + "$")
                 return rhymes
             else:
                 consonant_cnt = 0
@@ -290,14 +275,15 @@ def identical_rhyme(word, phones=None):
                             search_start = "((..(0|1|2) )|^)"
                         break
                 search_list.reverse()
-                search = search_start + " ".join(search_list) + "$"
-                rhymes = search(search)
+                searchs = search_start + " ".join(search_list) + "$"
+                rhymes = search(searchs)
                 # for r in rhymes:
                 #     print(pronouncing.phones_for_word(r)[0])
                 return rhymes
 
 
 print(rhyme("reader"))
-print()
+print(perfect_rhyme("reader"))
+
 # with open("pronunc_subset6.txt", "r") as file:
 #     init_cmu(file.readlines())
