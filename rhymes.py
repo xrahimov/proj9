@@ -1,5 +1,4 @@
 import collections
-# from itertools import chain
 import re
 
 pronunciations = None
@@ -8,19 +7,6 @@ rhyme_lookup = None
 
 
 def search(pattern):
-    """Get words whose pronunciation matches a regular expression.
-    This function Searches the CMU dictionary for pronunciations matching a
-    given regular expression. (Word boundary anchors are automatically added
-    before and after the pattern.)
-    .. doctest::
-        >>> import pronouncing
-        >>> 'interpolate' in pronouncing.search('ER1 P AH0')
-        True
-    :param pattern: a string containing a regular expression
-    :returns: a list of matching words
-    """
-    with open("PronunciationDictionary.txt", "r") as file:
-        init_cmu(file.readlines())
     regexp = re.compile(r"\b" + pattern + r"\b")
     return [word for word, phones in pronunciations if regexp.search(phones)]
 
@@ -28,7 +14,6 @@ def search(pattern):
 def consonant_clusters():
     """Return a list of possible English consonant clusters."""
     """
-    See the following resources for more information on consonant clusters.
     "consonant cluster: "a group of consonants which have no intervening vowel"
         https://en.wikipedia.org/wiki/Consonant_cluster
     "Two Theories of Onset Clusters", Duanmu
@@ -105,18 +90,15 @@ def consonant_clusters():
 
 
 def check_if_stressed_vowel(phone):
-    """Returns True if CMUdict phoneme is a stressed vowel."""
     # 1 or 2 indicate vowel is stressed
     return phone[-1] in "12"
 
 
 def check_if_consonant_cluster(phones):
-    """Return True if CMUdict phonemes is a consonant cluster."""
     return phones in consonant_clusters()
 
 
 def check_if_consonant(phone):
-    """Returns True if CMUdict phoneme is a consonant."""
     # consonants do not have any stress number
     return phone[-1] not in "012"
 
@@ -132,8 +114,10 @@ def parse_cmu(cmufh):
     return pronunciations
 
 
-def init_cmu(filehandle=None):
+def init_cmu(f_name):
     global pronunciations, lookup, rhyme_lookup
+    with open(f_name, "r") as file:
+        filehandle = file.readlines()
     if pronunciations is None:
         pronunciations = parse_cmu(filehandle)
         lookup = collections.defaultdict(list)
@@ -155,15 +139,14 @@ def rhyming_part(phones):
 
 
 def phones_for_word(find):
-    with open("PronunciationDictionary.txt", "r") as file:
-        init_cmu(file.readlines())
-
     return lookup.get(find.lower(), [])
+
 
 def chain(*iterables):
     for it in iterables:
         for each in it:
             yield each
+
 
 def rhyme(word):
     phones = phones_for_word(word)
@@ -181,11 +164,6 @@ def rhyme(word):
 
 
 def first_phones_for_word(word):
-    """Chooses first set of CMUdict phonemes for word
-
-    :param word: a word
-    :return: CMUdict phonemes string
-    """
     all_phones = phones_for_word(word)
     if not all_phones:
         return ""
@@ -194,20 +172,6 @@ def first_phones_for_word(word):
 
 
 def perfect_rhyme(word, phones=None):
-    """Returns a list of perfect rhymes for a word.
-
-    The conditions for a perfect rhyme between words are:
-    (1) last stressed vowel and subsequent phonemes match
-    (2) onset of last stressed syllable is different
-    If phones argument not given, phones/pronunciation used will default to the
-    first in the list of phones returned for word. If no rhyme is found, an
-    empty list is returned.
-
-
-    :param word: a word
-    :param phones: specific CMUdict phonemes string for word (default None)
-    :return: a list of perfect rhymes for word
-    """
     if phones is None:
         phones = first_phones_for_word(word)
         if phones == "":
@@ -268,22 +232,36 @@ def identical_rhyme(word, phones=None):
                             consonants = next_phone
                             search_list.append(next_phone)
                     else:
-                        if consonant_cnt == 0:  # null onset
-                            # Regex: vowel (AA1, EH0, ect.) or start '^'
-                            # pretty sure all vowel start two letters...
-                            #   (would be "((.{1,2}(0|1|2) )|^)" otherwise)
+                        if consonant_cnt == 0:
                             search_start = "((..(0|1|2) )|^)"
                         break
                 search_list.reverse()
                 searchs = search_start + " ".join(search_list) + "$"
                 rhymes = search(searchs)
-                # for r in rhymes:
-                #     print(pronouncing.phones_for_word(r)[0])
+
                 return rhymes
 
 
-print(rhyme("reader"))
-print(perfect_rhyme("reader"))
+def main():
+    filename = input("Enter file name:\n")
+    init_cmu(filename)
+    word = ""
+    while word != "#quit":
+        word = input('\nEnter word to rhyme, or enter "#quit":\n').strip()
+        if word == "#quit":
+            break
+        elif word == "":
+            print("No word given.\n")
+        elif len(word.split()) > 1:
+            print("Multiple words entered, please enter only one word at a time.")
+        else:
+            print("Rhymes for: ", word.upper())
+            rhyming_words = perfect_rhyme(word)
+            if len(rhyming_words) == 0:
+                print("  -- none found --")
+            else:
+                for el in rhyming_words:
+                    print("  " + el.upper())
 
-# with open("pronunc_subset6.txt", "r") as file:
-#     init_cmu(file.readlines())
+
+main()
